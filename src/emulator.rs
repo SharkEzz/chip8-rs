@@ -1,8 +1,6 @@
-#![allow(dead_code)]
-
 use rand::random;
 
-const FONT_SET: [u8; 80] = [
+const FONT_SET: &[u8] = &[
     0xF0, 0x90, 0x90, 0x90, 0xF0, // 0
     0x20, 0x60, 0x20, 0x20, 0x70, // 1
     0xF0, 0x10, 0xF0, 0x80, 0xF0, // 2
@@ -52,7 +50,9 @@ impl Emulator {
             draw: false,
         };
 
-        e.memory[..80].copy_from_slice(&FONT_SET);
+        for (i, val) in FONT_SET.iter().enumerate() {
+            e.memory[i] = *val;
+        }
 
         return e;
     }
@@ -75,7 +75,7 @@ impl Emulator {
         if index > self.key.len() {
             panic!("Invalid key index specified: {}", index);
         }
-        self.key[index as usize] = down;
+        self.key[index] = down;
     }
 
     pub fn cycle(&mut self) -> u16 {
@@ -119,10 +119,11 @@ impl Emulator {
 
     fn process_opcode(&mut self, op: u16) {
         let x = ((op & 0x0F00) >> 8) as usize;
-        let y = ((op & 0x00F) >> 4) as usize;
+        let y = ((op & 0x00F0) >> 4) as usize;
         let nnn = op & 0x0FFF;
         let kk = (op & 0x00FF) as u8;
 
+        // Increment the PC register for each cycle
         if self.pc + 2 < 0xFFF {
             self.next_instruction()
         }
@@ -166,7 +167,7 @@ impl Emulator {
                 self.v[x] = kk;
             }
             0x7000 => {
-                self.v[x] = self.v[x] + kk;
+                self.v[x] = self.v[x].checked_add(kk).unwrap_or(255);
             }
             0x8000 => match op & 0x000F {
                 0x0000 => {
@@ -198,7 +199,7 @@ impl Emulator {
                         self.v[0xF] = 0;
                     }
 
-                    self.v[x] = self.v[x] - self.v[y];
+                    self.v[x] = self.v[x].checked_sub(self.v[y]).unwrap_or(0);
                 }
                 0x0006 => {
                     let vx = self.v[x];
@@ -220,7 +221,7 @@ impl Emulator {
                         self.v[0xF] = 0;
                     }
 
-                    self.v[x] = vy - vx;
+                    self.v[x] = vy.checked_sub(vx).unwrap_or(0);
                 }
                 0x000E => {
                     let vx = self.v[x];
@@ -256,9 +257,9 @@ impl Emulator {
                 let vy = self.v[y] as u16;
                 let n = op & 0x000F;
                 self.v[0xF] = 0;
-                for j in 0..n as u16 {
+                for j in 0..n {
                     let pixel = self.memory[(self.i + j) as usize];
-                    for i in 0..8 as u16 {
+                    for i in 0..8 {
                         if (pixel & (0x80 >> i)) != 0 {
                             let mut pos_x = vx + i;
                             let mut pos_y = vy + j;

@@ -1,11 +1,10 @@
-use std::{env::args, fs};
-
 use emulator::Emulator;
 use sfml::{
     graphics::{Color, RectangleShape, RenderTarget, RenderWindow, Shape, Transformable},
     system::Vector2f,
-    window::{Event, Style},
+    window::{Event, Key, Style},
 };
+use std::{env::args, fs};
 
 mod emulator;
 
@@ -29,15 +28,40 @@ fn main() -> std::io::Result<()> {
         Style::CLOSE,
         &Default::default(),
     );
-    window.set_framerate_limit(60);
+    window.set_framerate_limit(120);
 
     window.set_active(true);
     window.clear(Color::BLACK);
 
     while window.is_open() {
         while let Some(event) = window.poll_event() {
-            if event == Event::Closed {
-                window.close();
+            match event {
+                Event::Closed => window.close(),
+                Event::KeyPressed {
+                    code,
+                    alt: _,
+                    ctrl: _,
+                    shift: _,
+                    system: _,
+                } => {
+                    let index = process_key(code);
+                    match index {
+                        Some(val) => emulator.set_key_state(val, true),
+                        None => {}
+                    }
+                }
+                Event::KeyReleased {
+                    code: _,
+                    alt: _,
+                    ctrl: _,
+                    shift: _,
+                    system: _,
+                } => {
+                    for i in 0..16 {
+                        emulator.set_key_state(i, false);
+                    }
+                }
+                _ => {}
             }
         }
 
@@ -68,4 +92,30 @@ fn main() -> std::io::Result<()> {
     }
 
     Ok(())
+}
+
+fn process_key(key: Key) -> Option<usize> {
+    match key {
+        Key::Num1 => Some(0),
+        Key::Num2 => Some(1),
+        Key::Num3 => Some(2),
+        Key::Num4 => Some(3),
+
+        Key::A => Some(4),
+        Key::Z => Some(5),
+        Key::E => Some(6),
+        Key::R => Some(7),
+
+        Key::Q => Some(8),
+        Key::S => Some(9),
+        Key::D => Some(10),
+        Key::F => Some(11),
+
+        Key::W => Some(12),
+        Key::X => Some(13),
+        Key::C => Some(14),
+        Key::V => Some(15),
+
+        _ => None,
+    }
 }
