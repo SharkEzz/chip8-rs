@@ -50,9 +50,7 @@ impl Emulator {
             draw: false,
         };
 
-        for (i, val) in FONT_SET.iter().enumerate() {
-            e.memory[i] = *val;
-        }
+        e.memory[0..80].copy_from_slice(FONT_SET);
 
         return e;
     }
@@ -167,7 +165,7 @@ impl Emulator {
                 self.v[x] = kk;
             }
             0x7000 => {
-                self.v[x] = self.v[x].checked_add(kk).unwrap_or(255);
+                self.v[x] = self.v[x].wrapping_add(kk);
             }
             0x8000 => match op & 0x000F {
                 0x0000 => {
@@ -183,14 +181,13 @@ impl Emulator {
                     self.v[x] = self.v[x] ^ self.v[y];
                 }
                 0x0004 => {
-                    let val = (self.v[x] as u16) + (self.v[y] as u16);
-                    if val > 255 {
+                    if (self.v[x] as u16) + (self.v[y] as u16) > 255 {
                         self.v[0xF] = 1;
                     } else {
                         self.v[0xF] = 0;
                     }
 
-                    self.v[x] = val as u8;
+                    self.v[x] = self.v[x].wrapping_add(self.v[y]);
                 }
                 0x0005 => {
                     if self.v[x] > self.v[y] {
@@ -199,17 +196,13 @@ impl Emulator {
                         self.v[0xF] = 0;
                     }
 
-                    self.v[x] = self.v[x].checked_sub(self.v[y]).unwrap_or(0);
+                    self.v[x] = self.v[x].wrapping_sub(self.v[y]);
                 }
                 0x0006 => {
                     let vx = self.v[x];
-                    if vx & 0x0F == 1 {
-                        self.v[0xF] = 1;
-                    } else {
-                        self.v[0xF] = 0;
-                    }
 
-                    self.v[x] /= 2;
+                    self.v[0xF] = self.v[x] & 0x1;
+                    self.v[x] = vx >> 1;
                 }
                 0x0007 => {
                     let vx = self.v[x];
@@ -221,12 +214,12 @@ impl Emulator {
                         self.v[0xF] = 0;
                     }
 
-                    self.v[x] = vy.checked_sub(vx).unwrap_or(0);
+                    self.v[x] = vy.wrapping_sub(vx);
                 }
                 0x000E => {
                     let vx = self.v[x];
 
-                    if vx & 0xF0 == 1 {
+                    if vx & 0x80 == 0x80 {
                         self.v[0xF] = 1;
                     } else {
                         self.v[0xF] = 0;
@@ -326,19 +319,19 @@ impl Emulator {
                     self.i = (self.v[x] as u16) * 0x5; // 0x5 is the length of one character
                 }
                 0x0033 => {
-                    self.memory[self.i as usize] = self.v[x as usize] / 100;
-                    self.memory[(self.i + 1) as usize] = (self.v[x as usize] / 10) % 10;
-                    self.memory[(self.i + 2) as usize] = (self.v[x as usize] % 100) % 10;
+                    self.memory[self.i as usize] = self.v[x] / 100;
+                    self.memory[(self.i + 1) as usize] = (self.v[x] / 10) % 10;
+                    self.memory[(self.i + 2) as usize] = (self.v[x] % 100) % 10;
                 }
                 0x0055 => {
                     for i in 0..(x + 1) {
-                        self.memory[((i as u16) + self.i) as usize] = self.v[i as usize];
+                        self.memory[((i as u16) + self.i) as usize] = self.v[i];
                     }
                     self.i = (x as u16) + 1;
                 }
                 0x0065 => {
                     for i in 0..(x + 1) {
-                        self.v[i as usize] = self.memory[(self.i + (i as u16)) as usize]
+                        self.v[i] = self.memory[(self.i + (i as u16)) as usize]
                     }
                     self.i = (x as u16) + 1;
                 }
